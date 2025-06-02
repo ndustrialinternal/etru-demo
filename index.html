@@ -295,20 +295,7 @@ endDateInput.value = endStr;
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    query: `
-      query($filter: SubmeterSessionFilter) {
-        submeterSessions(filter: $filter) {
-          nodes {
-            id
-            startTime
-            endTime
-            submeter {
-              id
-            }
-          }
-        }
-      }
-    `,
+    query: submeterQuery,
     variables: {
       filter: {
         startTime: {
