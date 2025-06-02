@@ -123,6 +123,8 @@
   <div class="dashboard-container">
     <div class="facilitySelectorCommonComponent">
       <span>Charge eTRU Metrics for Krispy Kreme</span>
+      <label for="endDate">Select End Date:</label>
+<input type="date" id="endDate" max="" />
     </div>
 
     <div class="card-container">
@@ -156,18 +158,23 @@
     <canvas id="lineChart" height="300"></canvas>
   </div>
 
-  <script>
-    const today = new Date();
+ <script>
+  const endDateInput = document.getElementById('endDate');
+  const todayStr = new Date().toISOString().split('T')[0];
+  endDateInput.max = todayStr;
+  endDateInput.value = todayStr;
 
-    function formatDateLabel(date) {
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    }
+  let lineChart; // store the Chart.js instance
 
-    const query = 
+  function fetchMetrics(endDateStr) {
+    const endDate = new Date(endDateStr);
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 30);
+    const isoStart = startDate.toISOString().split('T')[0];
+    const isoEnd = endDate.toISOString().split('T')[0];
+
+    // --------- Trailer Metrics ---------
+    const trailerQuery = `
       query($filter: TrailerAppointmentFilter) {
         trailerAppointments(filter: $filter) {
           nodes {
@@ -188,24 +195,20 @@
           }
         }
       }
-    ;
-
-    // --- Metric Fetch (Last 30 Days) ---
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    const isoDate = thirtyDaysAgo.toISOString().split('T')[0];
+    `;
 
     fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query,
+        query: trailerQuery,
         variables: {
           filter: {
             checkinTime: {
-              greaterThan: isoDate
+              between: {
+                greaterThan: isoStart,
+                lessThanOrEqualTo: isoEnd
+              }
             }
           }
         }
@@ -215,16 +218,13 @@
     .then(data => {
       const trailers = data?.data?.trailerAppointments?.nodes || [];
 
-      // Metric 1: Count of trailers that support eTRU
       const supportEtruCount = trailers.filter(t => t.trailer?.supportEtru === true).length;
       document.getElementById('count1').textContent = supportEtruCount;
 
-      // Metric 6: Percent of trailers that are eTRU enabled
-const totalAppointments = trailers.length;
-const etruPercent = totalAppointments > 0 ? Math.round((supportEtruCount / totalAppointments) * 100) : 0;
-document.getElementById('percentEtruEnabled').textContent = ${etruPercent}%;
+      const totalAppointments = trailers.length;
+      const etruPercent = totalAppointments > 0 ? Math.round((supportEtruCount / totalAppointments) * 100) : 0;
+      document.getElementById('percentEtruEnabled').textContent = `${etruPercent}%`;
 
-      // Metric 2 & 3: Missed assignments + Assignment rate
       let yardSessionsWithoutEtru = 0;
       let totalYardSessions = 0;
       let etruYardSessions = 0;
@@ -250,26 +250,65 @@ document.getElementById('percentEtruEnabled').textContent = ${etruPercent}%;
       const percent = totalYardSessions > 0
         ? Math.round((etruYardSessions / totalYardSessions) * 100)
         : 0;
-      document.getElementById('count3').textContent = ${percent}%;
+      document.getElementById('count3').textContent = `${percent}%`;
     })
     .catch(err => {
-      console.error('Metric fetch error:', err);
-      document.getElementById('count1').textContent = 'Error';
-      document.getElementById('count2').textContent = 'Error';
-      document.getElementById('count3').textContent = 'Error';
+      console.error('Trailer metric fetch error:', err);
     });
 
-    // --- Chart Fetch (Last 180 Days, 30-Day Buckets) ---
-    const chartStart = new Date();
-    chartStart.setDate(today.getDate() - 180);
+    // --------- Submeter Metrics ---------
+    const submeterQuery = `
+      query {
+        submeterSessions {
+          nodes {
+            id
+            startTime
+            endTime
+          }
+        }
+      }
+    `;
 
     fetch('https://etru-demo-proxy-power.onrender.com/proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: submeterQuery })
+    })
+    .then(res => res.json())
+    .then(data => {
+      const sessions = (data?.data?.submeterSessions?.nodes || []).filter(session => {
+        const start = new Date(session.startTime);
+        return start >= startDate && start <= endDate;
+      });
+
+      const sessionCount = sessions.length;
+      document.getElementById('submeterCount').textContent = sessionCount;
+
+      let totalDurationMs = 0;
+      sessions.forEach(s => {
+        if (s.startTime && s.endTime) {
+          const start = new Date(s.startTime);
+          const end = new Date(s.endTime);
+          totalDurationMs += (end - start);
+        }
+      });
+
+      const totalHours = Math.round(totalDurationMs / (1000 * 60 * 60));
+      document.getElementById('submeterDuration').textContent = `${totalHours} hrs`;
+    })
+    .catch(err => {
+      console.error('Submeter fetch error:', err);
+    });
+
+    // --------- Chart: Last 180 Days ---------
+    const chartStart = new Date(endDate);
+    chartStart.setDate(chartStart.getDate() - 180);
+
+    fetch('https://etru-demo-proxy-power.onrender.com/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query,
+        query: trailerQuery,
         variables: {
           filter: {
             checkinTime: {
@@ -283,26 +322,20 @@ document.getElementById('percentEtruEnabled').textContent = ${etruPercent}%;
     .then(chartData => {
       const chartTrailers = chartData?.data?.trailerAppointments?.nodes || [];
 
-      // Build 6 buckets (30-day windows, oldest to newest)
       const bucketLabels = [];
       const bucketCounts = {};
       const bucketRanges = [];
 
-     // Start from 6 months ago
-let current = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-
-for (let i = 0; i < 6; i++) {
-  const start = new Date(current.getFullYear(), current.getMonth(), 1);
-  const end = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-  const label = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-
-  bucketLabels.push(label);
-  bucketCounts[label] = 0;
-  bucketRanges.push({ start, end, label });
-
-  current.setMonth(current.getMonth() + 1);
-}
-
+      let current = new Date(chartStart.getFullYear(), chartStart.getMonth(), 1);
+      for (let i = 0; i < 6; i++) {
+        const start = new Date(current.getFullYear(), current.getMonth(), 1);
+        const end = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+        const label = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        bucketLabels.push(label);
+        bucketCounts[label] = 0;
+        bucketRanges.push({ start, end, label });
+        current.setMonth(current.getMonth() + 1);
+      }
 
       chartTrailers.forEach(t => {
         if (t.trailer?.supportEtru !== true || !t.checkinTime) return;
@@ -316,7 +349,11 @@ for (let i = 0; i < 6; i++) {
       });
 
       const ctx = document.getElementById('lineChart').getContext('2d');
-      new Chart(ctx, {
+      if (lineChart) {
+        lineChart.destroy();
+      }
+
+      lineChart = new Chart(ctx, {
         type: 'line',
         data: {
           labels: bucketLabels,
@@ -335,26 +372,25 @@ for (let i = 0; i < 6; i++) {
           plugins: {
             legend: { display: false },
             tooltip: {
-  callbacks: {
-    title: (tooltipItems) => {
-      const index = tooltipItems[0].dataIndex;
-      const range = bucketRanges[index];
-      const startStr = range.start.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      const endStr = range.end.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      return ${startStr} – ${endStr};
-    },
-    label: (ctx) => ${ctx.parsed.y} appointments
-  }
-}
-
+              callbacks: {
+                title: (tooltipItems) => {
+                  const index = tooltipItems[0].dataIndex;
+                  const range = bucketRanges[index];
+                  const startStr = range.start.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  const endStr = range.end.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  return `${startStr} – ${endStr}`;
+                },
+                label: (ctx) => `${ctx.parsed.y} appointments`
+              }
+            }
           },
           scales: {
             y: {
@@ -368,61 +404,15 @@ for (let i = 0; i < 6; i++) {
     .catch(err => {
       console.error('Chart data fetch error:', err);
     });
-    const submeterQuery = 
-  query {
-    submeterSessions {
-      nodes {
-        id
-        startTime
-        endTime
-      }
-    }
   }
-;
 
-fetch('https://etru-demo-proxy-power.onrender.com/proxy', { // Replace with your actual second proxy
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({ query: submeterQuery })
-})
-.then(res => res.json())
-.then(data => {
-  const now = new Date();
-  const past30 = new Date();
-  past30.setDate(now.getDate() - 30);
-
-  const sessions = (data?.data?.submeterSessions?.nodes || []).filter(session => {
-    const start = new Date(session.startTime);
-    return start >= past30;
+  endDateInput.addEventListener('change', () => {
+    fetchMetrics(endDateInput.value);
   });
 
-  // Metric A: Count
-  const sessionCount = sessions.length;
-  document.getElementById('submeterCount').textContent = sessionCount;
+  fetchMetrics(todayStr); // Initial load
+</script>
 
-  // Metric B: Total duration
-  let totalDurationMs = 0;
-  sessions.forEach(s => {
-    if (s.startTime && s.endTime) {
-      const start = new Date(s.startTime);
-      const end = new Date(s.endTime);
-      totalDurationMs += (end - start);
-    }
-  });
-
-  const totalHours = Math.round(totalDurationMs / (1000 * 60 * 60));
-  document.getElementById('submeterDuration').textContent = ${totalHours} hrs;
-
-})
-.catch(err => {
-  console.error('Submeter fetch error:', err);
-  document.getElementById('submeterCount').textContent = 'Error';
-  document.getElementById('submeterDuration').textContent = 'Error';
-});
-
-  </script>
 
 </body>
 </html>
