@@ -291,37 +291,52 @@ endDateInput.value = endStr;
       }
     `;
 
-    fetch('https://etru-demo-proxy-power.onrender.com/proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: submeterQuery })
-    })
- .then(res => res.json())
+    fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: `
+      query($filter: SubmeterSessionFilter) {
+        submeterSessions(filter: $filter) {
+          nodes {
+            id
+            startTime
+            endTime
+            submeter {
+              id
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      filter: {
+        startTime: {
+          greaterThanOrEqualTo: isoStart,
+          lessThanOrEqualTo: isoEnd
+        }
+      }
+    }
+  })
+})
+.then(res => res.json())
 .then(data => {
-  const sessionsRaw = data?.data?.submeterSessions?.nodes || [];
-  const sessions = sessionsRaw.filter(session => {
-    if (!session.startTime) return false;
-    const start = new Date(session.startTime);
-    const end = new Date(session.endTime);
-    return start >= startDate && end <= endDate;
+  const sessions = data?.data?.submeterSessions?.nodes || [];
+
+  const sessionCount = sessions.length;
+  document.getElementById('submeterCount').textContent = sessionCount;
+
+  let totalDurationMs = 0;
+  sessions.forEach(s => {
+    if (s.startTime && s.endTime) {
+      const start = new Date(s.startTime);
+      const end = new Date(s.endTime);
+      totalDurationMs += (end - start);
+    }
   });
 
-
-
-      const sessionCount = sessions.length;
-      document.getElementById('submeterCount').textContent = sessionCount;
-
-      let totalDurationMs = 0;
-      sessions.forEach(s => {
-        if (s.startTime && s.endTime) {
-          const start = new Date(s.startTime);
-          const end = new Date(s.endTime);
-          totalDurationMs += (end - start);
-        }
-      });
-
-      const totalHours = Math.round(totalDurationMs / (1000 * 60 * 60));
-document.getElementById('submeterDuration').textContent = `${totalHours} hrs`;
+  const totalHours = Math.round(totalDurationMs / (1000 * 60 * 60));
+  document.getElementById('submeterDuration').textContent = `${totalHours} hrs`;
 
 // Save for charging % calculation
 const chargingMs = totalDurationMs;
