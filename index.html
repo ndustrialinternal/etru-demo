@@ -158,6 +158,11 @@
         <h2>Power Session Total Duration</h2>
         <div class="value" id="submeterDuration">Loading...</div>
       </div>
+      <div class="metric-card">
+  <h2>Charging % of Parked Time</h2>
+  <div class="value" id="chargingPercent">Loading...</div>
+</div>
+
     </div>
 
     <h2 class="section-title">eTRU Trailer Appointments Over Time</h2>
@@ -312,7 +317,74 @@ endDateInput.value = todayStr;
       });
 
       const totalHours = Math.round(totalDurationMs / (1000 * 60 * 60));
-      document.getElementById('submeterDuration').textContent = `${totalHours} hrs`;
+document.getElementById('submeterDuration').textContent = `${totalHours} hrs`;
+
+// Save for charging % calculation
+const chargingMs = totalDurationMs;
+
+// Fetch trailer parking time for the same period with real durations
+fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: `
+      query($filter: TrailerAppointmentFilter) {
+        trailerAppointments(filter: $filter) {
+          nodes {
+            trailer {
+              parkSessions {
+                nodes {
+                  startTime
+                  endTime
+                  space {
+                    etruEnabled
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      filter: {
+        checkinTime: {
+          between: {
+            greaterThan: isoStart,
+            lessThanOrEqualTo: isoEnd
+          }
+        }
+      }
+    }
+  })
+})
+.then(res => res.json())
+.then(data => {
+  const trailers = data?.data?.trailerAppointments?.nodes || [];
+
+  let totalParkMs = 0;
+  trailers.forEach(t => {
+    const sessions = t.trailer?.parkSessions?.nodes || [];
+    sessions.forEach(s => {
+      if (s.space?.etruEnabled && s.startTime && s.endTime) {
+        const start = new Date(s.startTime);
+        const end = new Date(s.endTime);
+        totalParkMs += (end - start);
+      }
+    });
+  });
+
+  const chargePct = totalParkMs > 0
+    ? Math.round((chargingMs / totalParkMs) * 100)
+    : 0;
+
+  document.getElementById('chargingPercent').textContent = `${chargePct}%`;
+})
+.catch(err => {
+  console.error('Charging % calc error:', err);
+  document.getElementById('chargingPercent').textContent = 'Error';
+});
+
     })
     .catch(err => {
       console.error('Submeter fetch error:', err);
