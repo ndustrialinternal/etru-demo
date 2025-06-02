@@ -232,10 +232,8 @@ endDateInput.value = endStr;
         variables: {
           filter: {
             checkinTime: {
-              between: {
                 greaterThan: isoStart,
                 lessThanOrEqualTo: isoEnd
-              }
             }
           }
         }
@@ -353,10 +351,8 @@ fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
     variables: {
       filter: {
         checkinTime: {
-          between: {
             greaterThan: isoStart,
             lessThanOrEqualTo: isoEnd
-          }
         }
       }
     }
