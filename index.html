@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>eTRU Metrics</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Roboto, sans-serif;
-      background: #fff;
+      background: rgb(255, 255, 255);
       margin: 0;
       padding: 0;
       color: #2b2f32;
@@ -20,14 +20,8 @@
       width: 100%;
       background-color: #f5f6f6;
       color: #2b2f32;
-      padding: 10px 16px;
+      padding: 10px 16px 10px;
       border-bottom: 1.75px solid #dbe2ea;
-    }
-
-    .header-banner h1 {
-      margin: 0;
-      font-size: 1.8rem;
-      font-weight: 300;
     }
 
     .dashboard-container {
@@ -45,14 +39,6 @@
       font-weight: 300;
     }
 
-    .date-range-selector {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      font-size: 1rem;
-    }
-
     .card-container {
       display: flex;
       flex-wrap: wrap;
@@ -65,7 +51,6 @@
       background: #ffffff;
       border-radius: 12px;
       border: 14px solid rgb(211, 228, 254);
-      box-shadow: none;
       padding: 1.5rem 2rem;
       flex: 1 1 280px;
       min-width: 310px;
@@ -78,10 +63,9 @@
       color: rgba(0, 0, 0, 0.6);
       margin: 0 0 0.5rem;
       font-weight: 400;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      overflow: visible;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .metric-card .value {
@@ -91,9 +75,13 @@
     }
 
     .info-icon {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 16px;
       height: 16px;
+      font-size: 14px;
+      margin-left: 8px;
       color: #888;
       cursor: pointer;
       position: relative;
@@ -110,19 +98,23 @@
       padding: 6px 10px;
       font-size: 0.75rem;
       border-radius: 4px;
-      white-space: normal;
-      max-width: 440px;
-      word-wrap: break-word;
+      white-space: nowrap;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;
       z-index: 9999;
-      text-align: left;
-      box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.2);
     }
 
     .info-icon:hover::after {
       opacity: 1;
+    }
+
+    h2.section-title {
+      text-align: left;
+      font-size: 1.75rem;
+      color: #2b2f32;
+      margin: 3rem 0 1rem;
+      font-weight: 300;
     }
 
     canvas {
@@ -139,114 +131,151 @@
   <div class="header-banner">
     <h1>Nsight Fleet</h1>
   </div>
+
   <div class="dashboard-container">
     <div class="facilitySelectorCommonComponent">
       <span>Charge eTRU Metrics for Krispy Kreme</span>
     </div>
-    <div class="date-range-selector">
-      <label for="end-date-range">Select Date Range:</label>
-      <input type="date" id="startDate" />
-      <input type="date" id="endDate" />
-      <button id="applyDates">Apply</button>
-    </div>
+
     <div class="card-container">
       <div class="metric-card">
-        <h2>eTRU Trailers <span class="info-icon" data-tooltip="Count of eTRU-enabled trailers.">ⓘ</span></h2>
+        <h2>eTRU Trailers <span class="info-icon" data-tooltip="Number of eTRU-enabled trailers.">ⓘ</span></h2>
         <div class="value" id="count1">Loading...</div>
       </div>
       <div class="metric-card">
-        <h2>eTRU Charging Time % <span class="info-icon" data-tooltip="Percentage of time eTRU trailers were charging while parked in eTRU-enabled spaces.">ⓘ</span></h2>
+        <h2>eTRU-Enabled Trailer % <span class="info-icon" data-tooltip="Percent of trailers that are eTRU-enabled.">ⓘ</span></h2>
+        <div class="value" id="percentEtruEnabled">Loading...</div>
+      </div>
+      <div class="metric-card">
+        <h2>eTRU Missed Assignments <span class="info-icon" data-tooltip="eTRU trailers parked in non-eTRU spaces.">ⓘ</span></h2>
+        <div class="value" id="count2">Loading...</div>
+      </div>
+      <div class="metric-card">
+        <h2>eTRU Assignment Rate <span class="info-icon" data-tooltip="Rate of eTRU trailers parked in eTRU spaces.">ⓘ</span></h2>
+        <div class="value" id="count3">Loading...</div>
+      </div>
+      <div class="metric-card">
+        <h2>Powering Session Count <span class="info-icon" data-tooltip="Count of charging sessions.">ⓘ</span></h2>
+        <div class="value" id="submeterCount">Loading...</div>
+      </div>
+      <div class="metric-card">
+        <h2>Power Session Total Duration <span class="info-icon" data-tooltip="Total hours eTRUs were charging.">ⓘ</span></h2>
+        <div class="value" id="submeterDuration">Loading...</div>
+      </div>
+      <div class="metric-card">
+        <h2>eTRU Charging Time % <span class="info-icon" data-tooltip="Time spent charging vs. parked in eTRU spaces.">ⓘ</span></h2>
         <div class="value" id="chargingPercent">Loading...</div>
       </div>
     </div>
+
+    <h2 class="section-title">eTRU Trailer Appointments Over Time</h2>
+    <canvas id="lineChart" height="300"></canvas>
   </div>
+
   <script>
-    function formatISODate(date) {
-      return date.toISOString().split('T')[0];
-    }
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const isoDate = thirtyDaysAgo.toISOString().split('T')[0];
 
-    function getPreviousMonthRange() {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const end = new Date(now.getFullYear(), now.getMonth(), 0);
-      return {
-        startDateStr: formatISODate(start),
-        endDateStr: formatISODate(end)
-      };
-    }
-
-    function fetchMetricsInRange(startDateStr, endDateStr) {
-      const trailerQuery = `
-        query($filter: TrailerAppointmentFilter) {
-          trailerAppointments(filter: $filter) {
-            nodes {
-              trailer {
-                supportEtru
-                parkSessions {
-                  nodes {
-                    startTime
-                    endTime
-                    space { etruEnabled spaceCategory { name } }
+    const trailerQuery = `
+      query($filter: TrailerAppointmentFilter) {
+        trailerAppointments(filter: $filter) {
+          nodes {
+            checkinTime
+            trailer {
+              supportEtru
+              parkSessions {
+                nodes {
+                  startTime
+                  endTime
+                  space {
+                    etruEnabled
+                    spaceCategory {
+                      name
+                    }
                   }
                 }
               }
             }
           }
-        }`;
+        }
+      }
+    `;
 
-      fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
+    let totalChargingDurationMs = 0;
+
+    fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: trailerQuery,
+        variables: {
+          filter: { checkinTime: { greaterThan: isoDate } }
+        }
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      const trailers = data?.data?.trailerAppointments?.nodes || [];
+
+      const supportEtruCount = trailers.filter(t => t.trailer?.supportEtru === true).length;
+      document.getElementById('count1').textContent = supportEtruCount;
+
+      const totalAppointments = trailers.length;
+      const etruPercent = totalAppointments > 0 ? Math.round((supportEtruCount / totalAppointments) * 100) : 0;
+      document.getElementById('percentEtruEnabled').textContent = `${etruPercent}%`;
+
+      let yardSessionsWithoutEtru = 0, totalYardSessions = 0, etruYardSessions = 0, totalEtruYardParkTimeMs = 0;
+
+      trailers.forEach(t => {
+        if (t.trailer?.supportEtru) {
+          const sessions = t.trailer?.parkSessions?.nodes || [];
+          sessions.forEach(s => {
+            const isYard = s.space?.spaceCategory?.name?.toLowerCase() === 'yard';
+            const isEtru = s.space?.etruEnabled;
+            if (isYard) {
+              totalYardSessions++;
+              if (isEtru) etruYardSessions++;
+              else yardSessionsWithoutEtru++;
+            }
+            if (isYard && isEtru && s.startTime && s.endTime) {
+              totalEtruYardParkTimeMs += new Date(s.endTime) - new Date(s.startTime);
+            }
+          });
+        }
+      });
+
+      document.getElementById('count2').textContent = yardSessionsWithoutEtru;
+      const assignmentPercent = totalYardSessions > 0 ? Math.round((etruYardSessions / totalYardSessions) * 100) : 0;
+      document.getElementById('count3').textContent = `${assignmentPercent}%`;
+
+      fetch('https://etru-demo-proxy-power.onrender.com/proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: trailerQuery,
-          variables: {
-            filter: {
-              endTime: {
-                greaterThan: startDateStr,
-                lessThan: endDateStr
-              }
-            }
-          }
-        })
+        body: JSON.stringify({ query: `query { submeterSessions { nodes { id startTime endTime } } }` })
       })
-        .then(res => res.json())
-        .then(data => {
-          const trailers = data?.data?.trailerAppointments?.nodes || [];
-          const supportEtru = trailers.filter(t => t.trailer?.supportEtru).length;
-          document.getElementById('count1').textContent = supportEtru;
+      .then(res => res.json())
+      .then(powerData => {
+        const now = new Date();
+        const past30 = new Date();
+        past30.setDate(now.getDate() - 30);
 
-          let chargingTimeMs = 0, totalEligibleTimeMs = 0;
-          trailers.forEach(t => {
-            if (!t.trailer?.supportEtru) return;
-            (t.trailer.parkSessions?.nodes || []).forEach(s => {
-              if (!s.space?.etruEnabled || s.space.spaceCategory?.name?.toLowerCase() !== 'yard') return;
-              const start = new Date(s.startTime), end = new Date(s.endTime);
-              const duration = end - start;
-              if (!isNaN(duration)) {
-                totalEligibleTimeMs += duration;
-                // For simplicity assuming they were charging the entire time parked in eTRU space
-                chargingTimeMs += duration;
-              }
-            });
-          });
+        const sessions = (powerData?.data?.submeterSessions?.nodes || []).filter(s => new Date(s.startTime) >= past30);
 
-          const percent = totalEligibleTimeMs > 0
-            ? Math.round((chargingTimeMs / totalEligibleTimeMs) * 100)
-            : 0;
-          document.getElementById('chargingPercent').textContent = `${percent}%`;
-        });
-    }
+        const sessionCount = sessions.length;
+        document.getElementById('submeterCount').textContent = sessionCount;
 
-    document.getElementById('applyDates').addEventListener('click', () => {
-      const start = document.getElementById('startDate').value;
-      const end = document.getElementById('endDate').value;
-      if (start && end) fetchMetricsInRange(start, end);
+        totalChargingDurationMs = sessions.reduce((sum, s) => {
+          return sum + (new Date(s.endTime) - new Date(s.startTime));
+        }, 0);
+
+        const totalHours = Math.round(totalChargingDurationMs / 3600000);
+        document.getElementById('submeterDuration').textContent = `${totalHours} hrs`;
+
+        const chargingPercent = totalEtruYardParkTimeMs > 0 ? Math.round((totalChargingDurationMs / totalEtruYardParkTimeMs) * 100) : 0;
+        document.getElementById('chargingPercent').textContent = `${chargingPercent}%`;
+      });
     });
-
-    const { startDateStr, endDateStr } = getPreviousMonthRange();
-    document.getElementById('startDate').value = startDateStr;
-    document.getElementById('endDate').value = endDateStr;
-    fetchMetricsInRange(startDateStr, endDateStr);
   </script>
 </body>
 </html>
