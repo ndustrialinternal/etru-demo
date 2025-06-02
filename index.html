@@ -296,13 +296,16 @@ endDateInput.value = endStr;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: submeterQuery })
     })
-  .then(res => res.json())
+ .then(res => res.json())
 .then(data => {
-  const sessions = (data?.data?.submeterSessions?.nodes || []).filter(session => {
+  const sessionsRaw = data?.data?.submeterSessions?.nodes || [];
+  const sessions = sessionsRaw.filter(session => {
     if (!session.startTime) return false;
-    const sessionStart = new Date(session.startTime);
-    return sessionStart >= startDate && sessionStart <= endDate;
+    const start = new Date(session.startTime);
+    const end = new Date(session.endTime);
+    return start >= new Date(startDateStr) && end <= new Date(endDateStr);
   });
+
 
 
       const sessionCount = sessions.length;
