@@ -170,22 +170,12 @@
   </div>
 
  <script>
- const minDateInput = document.getElementById('minDate');
+const todayStr = new Date().toISOString().split('T')[0];
+const minDateInput = document.getElementById('minDate');
 const endDateInput = document.getElementById('endDate');
 
-const todayStr = new Date().toISOString().split('T')[0];
-const defaultMin = new Date();
-defaultMin.setFullYear(defaultMin.getFullYear() - 1); // 1 year ago
-const minStr = defaultMin.toISOString().split('T')[0];
-
-minDateInput.min = minStr;
 minDateInput.max = todayStr;
-minDateInput.value = minStr;
-
-endDateInput.min = minStr;
 endDateInput.max = todayStr;
-endDateInput.value = todayStr;
-
 
   let lineChart; // store the Chart.js instance
 
@@ -499,6 +489,19 @@ fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
  function updateFilters() {
   const selectedEnd = endDateInput.value;
   const selectedMin = minDateInput.value;
+  const today = new Date().toISOString().split('T')[0];
+
+  if (selectedEnd > today) {
+    alert("End date cannot be in the future.");
+    endDateInput.value = today;
+    return;
+  }
+
+  if (selectedMin > today) {
+    alert("Min date cannot be in the future.");
+    minDateInput.value = today;
+    return;
+  }
 
   if (selectedEnd < selectedMin) {
     alert("End date cannot be before min date.");
