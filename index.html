@@ -123,8 +123,14 @@
   <div class="dashboard-container">
     <div class="facilitySelectorCommonComponent">
       <span>Charge eTRU Metrics for Krispy Kreme</span>
-      <label for="endDate">Select End Date:</label>
-<input type="date" id="endDate" max="" />
+    <div class="facilitySelectorCommonComponent">
+  <label for="minDate">Min End Date:</label>
+  <input type="date" id="minDate" />
+
+  <label for="endDate">Max End Date:</label>
+  <input type="date" id="endDate" />
+</div>
+
     </div>
 
     <div class="card-container">
@@ -159,10 +165,22 @@
   </div>
 
  <script>
-  const endDateInput = document.getElementById('endDate');
-  const todayStr = new Date().toISOString().split('T')[0];
-  endDateInput.max = todayStr;
-  endDateInput.value = todayStr;
+ const minDateInput = document.getElementById('minDate');
+const endDateInput = document.getElementById('endDate');
+
+const todayStr = new Date().toISOString().split('T')[0];
+const defaultMin = new Date();
+defaultMin.setFullYear(defaultMin.getFullYear() - 1); // 1 year ago
+const minStr = defaultMin.toISOString().split('T')[0];
+
+minDateInput.min = minStr;
+minDateInput.max = todayStr;
+minDateInput.value = minStr;
+
+endDateInput.min = minStr;
+endDateInput.max = todayStr;
+endDateInput.value = todayStr;
+
 
   let lineChart; // store the Chart.js instance
 
@@ -406,11 +424,28 @@
     });
   }
 
-  endDateInput.addEventListener('change', () => {
-    fetchMetrics(endDateInput.value);
-  });
+ function updateFilters() {
+  const selectedEnd = endDateInput.value;
+  const selectedMin = minDateInput.value;
 
-  fetchMetrics(todayStr); // Initial load
+  if (selectedEnd < selectedMin) {
+    alert("End date cannot be before min date.");
+    return;
+  }
+
+  fetchMetrics(selectedEnd);
+}
+
+minDateInput.addEventListener('change', () => {
+  endDateInput.min = minDateInput.value;
+  updateFilters();
+});
+
+endDateInput.addEventListener('change', updateFilters);
+
+// Initial load
+updateFilters();
+
 </script>
 
 
