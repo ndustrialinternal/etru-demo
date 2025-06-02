@@ -303,7 +303,7 @@ endDateInput.value = endStr;
     if (!session.startTime) return false;
     const start = new Date(session.startTime);
     const end = new Date(session.endTime);
-    return start >= new Date(startDateStr) && end <= new Date(endDateStr);
+    return start >= startDate && end <= endDate;
   });
 
 
