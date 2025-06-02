@@ -121,15 +121,15 @@
 </div>
 
   <div class="dashboard-container">
-    <div class="facilitySelectorCommonComponent">
-      <span>Charge eTRU Metrics for Krispy Kreme</span>
-    <div class="facilitySelectorCommonComponent">
-  <label for="minDate">Min End Date:</label>
+   <h1>Charge eTRU metrics for Krispy Kreme</h1>
+<div class="facilitySelectorCommonComponent" style="margin-bottom: 1rem;">
+  <label for="minDate">Start Date:</label>
   <input type="date" id="minDate" />
 
-  <label for="endDate">Max End Date:</label>
+  <label for="endDate" style="margin-left: 1rem;">End Date:</label>
   <input type="date" id="endDate" />
 </div>
+
 
     </div>
 
@@ -170,12 +170,26 @@
   </div>
 
  <script>
-const todayStr = new Date().toISOString().split('T')[0];
 const minDateInput = document.getElementById('minDate');
 const endDateInput = document.getElementById('endDate');
 
+// Calculate default start = first of last month
+const now = new Date();
+const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+const startStr = startOfLastMonth.toISOString().split('T')[0];
+const endStr = endOfLastMonth.toISOString().split('T')[0];
+const todayStr = new Date().toISOString().split('T')[0];
+
+minDateInput.min = "2020-01-01"; // optionally set a low floor
 minDateInput.max = todayStr;
+minDateInput.value = startStr;
+
+endDateInput.min = startStr;
 endDateInput.max = todayStr;
+endDateInput.value = endStr;
+
 
   let lineChart; // store the Chart.js instance
 
