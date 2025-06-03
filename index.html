@@ -190,12 +190,9 @@ endDateInput.value = endStr;
 
   let lineChart; // store the Chart.js instance
 
-  function fetchMetrics(endDateStr) {
-    const endDate = new Date(endDateStr);
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - 30);
-    const isoStart = startDate.toISOString().split('T')[0];
-    const isoEnd = endDate.toISOString().split('T')[0];
+  function fetchMetrics(startDateStr, endDateStr) {
+    const isoStart = startDateStr;
+    const isoEnd = endDateStr;
 
     // --------- Trailer Metrics ---------
     const trailerQuery = `
@@ -522,7 +519,7 @@ fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
     return;
   }
 
-  fetchMetrics(selectedEnd);
+  fetchMetrics(minDateInput.value, endDateInput.value);
 }
 
 minDateInput.addEventListener('change', () => {
