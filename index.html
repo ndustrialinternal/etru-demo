@@ -280,16 +280,16 @@ endDateInput.value = endStr;
 
     // --------- Submeter Metrics ---------
     const submeterQuery = `
-      query {
-        submeterSessions {
-          nodes {
-            id
-            startTime
-            endTime
-          }
-        }
+  query($filter: SubmeterSessionFilter) {
+    submeterSessions(filter: $filter) {
+      nodes {
+        id
+        startTime
+        endTime
       }
-    `;
+    }
+  }
+`;
 
     fetch('https://etru-demo-proxy-j8j8.onrender.com/proxy', {
   method: 'POST',
